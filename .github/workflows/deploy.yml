@@ -61,13 +61,21 @@ jobs:
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            aws ecr get-login-password --region ap-south-1 | \
-              docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
-            docker stop flask-app || true
-            docker rm flask-app || true
-            docker pull ${{ env.IMAGE_URI }}
-            docker run -d --name flask-app -p 5000:5000 ${{ env.IMAGE_URI }}
+         host: ${{ secrets.EC2_HOST }}
+         username: ${{ secrets.EC2_USERNAME }}
+         key: ${{ secrets.EC2_SSH_KEY }}
+         script: |
+           # Login to ECR (not Docker Hub)
+           aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
+           | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+           # Stop and remove old container (ignore errors if not running)
+           docker stop flask-app || true
+           docker rm flask-app || true
+           # Pull new image
+           docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:latest
+           # Run new container
+           docker run -d \
+           --name flask-app \
+           --restart unless-stopped \
+           -p 5000:5000 \
+           ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY }}:latest
