@@ -23,7 +23,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Run tests
-        run: pytest tests/ -v
+        run: |
+          pip install -r requirements.txt
+          PYTHONPATH=. pytest tests/ -v
 
   build-and-push:
     name: Build Docker & Push to ECR
